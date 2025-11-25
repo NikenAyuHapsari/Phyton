@@ -1,133 +1,211 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
-import pandas as pd
+import math
 
 # --- Konfigurasi Halaman Utama ---
 st.set_page_config(
-    page_title="Virtual Lab Geometri Dimensi Tiga",
-    page_icon="🧊",
+    page_title="Virtual Lab Geometri Dimensi Tiga Komprehensif",
+    page_icon="🧱",
     layout="wide"
 )
 
-st.title("🧊 Virtual Lab: Geometri Dimensi Tiga (Kubus)")
-st.markdown("Eksplorasi interaktif Jarak dan Sudut pada bangun ruang Kubus.")
+st.title("🧱 Virtual Lab: Geometri Dimensi Tiga Komprehensif")
+st.markdown("Eksplorasi interaktif **Volume** dan **Luas Permukaan** berbagai bangun ruang 3D.")
 
 # ----------------------------------------------------------------------
 #                         SIDEBAR (INPUT - KIRI)
 # ----------------------------------------------------------------------
 
-st.sidebar.header("⚙️ Pengaturan Kubus")
+st.sidebar.header("⚙️ Pengaturan Bangun Ruang")
 
-sisi = st.sidebar.slider(
-    "Panjang Rusuk Kubus ($s$):",
-    min_value=3,
-    max_value=10,
-    value=6,
-    step=1
+# Pilihan Tipe Bangun Ruang
+tipe_bangun = st.sidebar.selectbox(
+    "Pilih Bangun Ruang:",
+    ("Kubus", "Balok", "Tabung", "Limas Segiempat", "Prisma Segitiga")
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📐 Perhitungan Jarak")
+st.sidebar.subheader(f"Input Dimensi ({tipe_bangun})")
 
-pilihan_jarak = st.sidebar.radio(
-    "Pilih Perhitungan Jarak:",
-    ("Jarak Titik ke Titik", "Jarak Titik ke Garis", "Jarak Titik ke Bidang")
-)
+# Input Parameter Bangun Ruang Spesifik
+params = {}
+if tipe_bangun == "Kubus":
+    s = st.sidebar.number_input("Panjang Rusuk ($s$):", min_value=1.0, value=5.0, step=0.5)
+    params['s'] = s
+elif tipe_bangun == "Balok":
+    p = st.sidebar.number_input("Panjang ($p$):", min_value=1.0, value=7.0, step=0.5)
+    l = st.sidebar.number_input("Lebar ($l$):", min_value=1.0, value=4.0, step=0.5)
+    t = st.sidebar.number_input("Tinggi ($t$):", min_value=1.0, value=5.0, step=0.5)
+    params = {'p': p, 'l': l, 't': t}
+elif tipe_bangun == "Tabung":
+    r = st.sidebar.number_input("Jari-jari Alas ($r$):", min_value=1.0, value=3.0, step=0.5)
+    t = st.sidebar.number_input("Tinggi Tabung ($t$):", min_value=1.0, value=8.0, step=0.5)
+    params = {'r': r, 't': t}
+elif tipe_bangun == "Limas Segiempat":
+    s_alas = st.sidebar.number_input("Sisi Alas ($s$):", min_value=1.0, value=6.0, step=0.5)
+    t_limas = st.sidebar.number_input("Tinggi Limas ($t$):", min_value=1.0, value=7.0, step=0.5)
+    params = {'s_alas': s_alas, 't': t_limas}
+elif tipe_bangun == "Prisma Segitiga":
+    a_alas = st.sidebar.number_input("Alas Segitiga ($a_{alas}$):", min_value=1.0, value=4.0, step=0.5)
+    t_alas = st.sidebar.number_input("Tinggi Segitiga ($t_{alas}$):", min_value=1.0, value=3.0, step=0.5)
+    t_prisma = st.sidebar.number_input("Tinggi Prisma ($t_{prisma}$):", min_value=1.0, value=10.0, step=0.5)
+    # Untuk Luas Permukaan, anggap segitiga alas siku-siku (sisi miring c)
+    c_miring = math.sqrt(a_alas**2 + t_alas**2)
+    params = {'a': a_alas, 't_alas': t_alas, 't_prisma': t_prisma, 'c': c_miring}
 
 # ----------------------------------------------------------------------
-#                      FUNGSI PERHITUNGAN DAN VISUALISASI
+#                      FUNGSI PERHITUNGAN
 # ----------------------------------------------------------------------
 
-# Definisikan titik-titik Kubus (Koordinat Kartesius)
-# A(0,0,0), B(s,0,0), C(s,s,0), D(0,s,0)
-# E(0,0,s), F(s,0,s), G(s,s,s), H(0,s,s)
-s = sisi
-TITIK = {
-    'A': (0, 0, 0), 'B': (s, 0, 0), 'C': (s, s, 0), 'D': (0, s, 0),
-    'E': (0, 0, s), 'F': (s, 0, s), 'G': (s, s, s), 'H': (0, s, s)
-}
+def hitung_sifat_bangun(tipe, p):
+    V = 0
+    LP = 0
+    rumus_V = ""
+    rumus_LP = ""
 
-# Fungsi untuk membuat visualisasi dasar Kubus
-def buat_plot_kubus(sisi, highlight_points=None, highlight_line=None):
-    # Titik-titik yang membentuk kubus
-    x_coords = [0, sisi, sisi, 0, 0, sisi, sisi, 0]
-    y_coords = [0, 0, sisi, sisi, 0, 0, sisi, sisi]
-    z_coords = [0, 0, 0, 0, sisi, sisi, sisi, sisi]
+    if tipe == "Kubus":
+        s = p['s']
+        V = s ** 3
+        LP = 6 * s ** 2
+        rumus_V = "V = s^3"
+        rumus_LP = "LP = 6 \\cdot s^2"
     
-    # Label titik
-    labels = list(TITIK.keys())
-    
-    # Sisi-sisi yang membentuk kerangka kubus
-    faces = [
-        [0, 1, 2, 3], [4, 5, 6, 7], # Alas & Atas
-        [0, 1, 5, 4], [1, 2, 6, 5], # Depan & Kanan
-        [2, 3, 7, 6], [3, 0, 4, 7]  # Belakang & Kiri
-    ]
+    elif tipe == "Balok":
+        p, l, t = p['p'], p['l'], p['t']
+        V = p * l * t
+        LP = 2 * (p * l + p * t + l * t)
+        rumus_V = "V = p \\cdot l \\cdot t"
+        rumus_LP = "LP = 2(pl + pt + lt)"
 
-    # Plot Kubus (Kerangka)
-    fig = go.Figure(data=[
-        go.Mesh3d(
-            x=x_coords, y=y_coords, z=z_coords, 
-            i=[r[0] for r in faces], j=[r[1] for r in faces], k=[r[2] for r in faces], 
-            opacity=0.15, color='lightblue', name='Kubus'
-        ),
-        go.Scatter3d(
-            x=x_coords, y=y_coords, z=z_coords, 
-            mode='markers+text', 
-            marker=dict(size=4, color='black'), 
-            text=labels, 
-            textfont=dict(size=12, color='black'),
-            name='Titik Sudut'
-        )
-    ])
-    
-    # Tambahkan Garis rusuk
-    edges = [
-        (0, 1), (1, 2), (2, 3), (3, 0), # Alas
-        (4, 5), (5, 6), (6, 7), (7, 4), # Atas
-        (0, 4), (1, 5), (2, 6), (3, 7)  # Rusuk Tegak
-    ]
-    for i, j in edges:
-        fig.add_trace(go.Scatter3d(
-            x=[x_coords[i], x_coords[j]], 
-            y=[y_coords[i], y_coords[j]], 
-            z=[z_coords[i], z_coords[j]], 
-            mode='lines', 
-            line=dict(color='black', width=3), 
-            showlegend=False
-        ))
+    elif tipe == "Tabung":
+        r, t = p['r'], p['t']
+        V = math.pi * r ** 2 * t
+        LP = 2 * math.pi * r * (r + t)
+        rumus_V = "V = \\pi r^2 t"
+        rumus_LP = "LP = 2 \\pi r(r + t)"
+
+    elif tipe == "Limas Segiempat":
+        s_alas, t = p['s_alas'], p['t']
+        Luas_Alas = s_alas ** 2
+        # Untuk Luas Permukaan, hitung Tinggi Sisi Tegak (tinggi segitiga, Ts)
+        Ts = math.sqrt((s_alas / 2) ** 2 + t ** 2)
+        Luas_Sisi_Tegak = 4 * (0.5 * s_alas * Ts)
         
-    # Highlight elemen perhitungan
-    if highlight_points:
-        x_hp, y_hp, z_hp = zip(*[TITIK[p] for p in highlight_points])
-        fig.add_trace(go.Scatter3d(
-            x=x_hp, y=y_hp, z=z_hp, 
-            mode='markers+text', 
-            marker=dict(size=6, color='red'),
-            text=highlight_points,
-            textfont=dict(size=14, color='red'),
-            name='Titik Fokus'
-        ))
+        V = (1/3) * Luas_Alas * t
+        LP = Luas_Alas + Luas_Sisi_Tegak
+        rumus_V = "V = \\frac{1}{3} L_{alas} t"
+        rumus_LP = "LP = L_{alas} + L_{sisi \\, tegak}"
 
-    if highlight_line:
-        p1, p2 = highlight_line
-        fig.add_trace(go.Scatter3d(
-            x=[p1[0], p2[0]], y=[p1[1], p2[1]], z=[p1[2], p2[2]],
-            mode='lines',
-            line=dict(color='red', width=5),
-            name='Jarak'
-        ))
+    elif tipe == "Prisma Segitiga":
+        a, t_alas, t_prisma, c = p['a'], p['t_alas'], p['t_prisma'], p['c']
+        Luas_Alas = 0.5 * a * t_alas
+        Keliling_Alas = a + t_alas + c # Asumsi Segitiga Siku-siku
+        
+        V = Luas_Alas * t_prisma
+        LP = 2 * Luas_Alas + Keliling_Alas * t_prisma
+        rumus_V = "V = L_{alas} t_{prisma}"
+        rumus_LP = "LP = 2 L_{alas} + K_{alas} t_{prisma}"
+        
+    return V, LP, rumus_V, rumus_LP
 
-    # Pengaturan Layout
+# Fungsi untuk membuat visualisasi 3D (disederhanakan)
+def buat_plot_3d(tipe, p):
+    fig = go.Figure()
+    
+    if tipe == "Kubus":
+        s = p['s']
+        # Definisi koordinat kubus
+        x = [0, s, s, 0, 0, s, s, 0]
+        y = [0, 0, s, s, 0, 0, s, s]
+        z = [0, 0, 0, 0, s, s, s, s]
+        
+        # Sisi-sisi yang membentuk permukaan kubus
+        i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
+        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
+        k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
+        
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
+                                color='lightblue', opacity=0.60))
+        
+    elif tipe == "Balok":
+        p, l, t = p['p'], p['l'], p['t']
+        x = [0, p, p, 0, 0, p, p, 0]
+        y = [0, 0, l, l, 0, 0, l, l]
+        z = [0, 0, 0, 0, t, t, t, t]
+        
+        i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
+        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
+        k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
+        
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
+                                color='lightgreen', opacity=0.60))
+
+    elif tipe == "Tabung":
+        r, t = p['r'], p['t']
+        # Membuat titik-titik tabung
+        u = np.linspace(0, 2 * np.pi, 50)
+        v = np.linspace(0, t, 10)
+        u, v = np.meshgrid(u, v)
+        x = r * np.cos(u)
+        y = r * np.sin(u)
+        z = v
+        
+        fig.add_trace(go.Surface(x=x, y=y, z=z, colorscale='Reds', opacity=0.6, showscale=False))
+        
+        # Alas dan Atas Tabung
+        fig.add_trace(go.Surface(x=r * np.cos(u), y=r * np.sin(u), z=0 * np.ones_like(u), colorscale='Reds', opacity=0.6, showscale=False))
+        fig.add_trace(go.Surface(x=r * np.cos(u), y=r * np.sin(u), z=t * np.ones_like(u), colorscale='Reds', opacity=0.6, showscale=False))
+        
+        
+    elif tipe == "Limas Segiempat":
+        s_alas, t = p['s_alas'], p['t']
+        # Titik: Puncak (0,0,t), Alas (s/2, s/2, 0)
+        h = s_alas / 2
+        # Titik-titik
+        x = [0, h, -h, -h, h]
+        y = [0, h, h, -h, -h]
+        z = [t, 0, 0, 0, 0]
+        
+        # Sisi-sisi
+        i = [1, 2, 3, 4]  # Sisi Tegak
+        j = [2, 3, 4, 1]
+        k = [0, 0, 0, 0]
+        
+        # Alas
+        fig.add_trace(go.Mesh3d(x=[h, -h, -h, h], y=[h, h, -h, -h], z=[0, 0, 0, 0], 
+                                i=[0,0], j=[1,1], k=[2,3], color='lightgray', opacity=0.8, showlegend=False))
+        
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
+                                color='yellow', opacity=0.60))
+        
+    elif tipe == "Prisma Segitiga":
+        a, t_alas, t_prisma = p['a'], p['t_alas'], p['t_prisma']
+        # Asumsi alas segitiga siku-siku (0,0,0), (a,0,0), (0,t_alas,0)
+        
+        # Koordinat 6 titik (depan dan belakang)
+        X = [0, a, 0, 0, a, 0]
+        Y = [0, 0, t_alas, 0, 0, t_alas]
+        Z = [0, 0, 0, t_prisma, t_prisma, t_prisma]
+        
+        # Sisi-sisi: 2 Alas Segitiga (0,1,2) dan 3 Sisi Tegak
+        i = [0, 3, 1, 4, 2, 5, 0, 1]
+        j = [1, 4, 2, 5, 0, 3, 2, 3]
+        k = [2, 5, 0, 3, 1, 4, 3, 4]
+
+        fig.add_trace(go.Mesh3d(x=X, y=Y, z=Z, i=i, j=j, k=k,
+                                color='pink', opacity=0.60))
+
+
+    # Pengaturan Layout Umum
     fig.update_layout(
         scene=dict(
-            xaxis=dict(range=[0, sisi], visible=False),
-            yaxis=dict(range=[0, sisi], visible=False),
-            zaxis=dict(range=[0, sisi], visible=False),
-            aspectmode='cube'
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            zaxis=dict(visible=False),
+            aspectmode='data'  # Memastikan rasio aspek realistis
         ),
-        title=f"Kubus Rusuk $s={sisi}$",
+        title=f"Model 3D Interaktif {tipe_bangun}",
         height=600,
         margin=dict(l=0, r=0, b=0, t=30)
     )
@@ -137,139 +215,51 @@ def buat_plot_kubus(sisi, highlight_points=None, highlight_line=None):
 #                         MAIN AREA (OUTPUT - KANAN)
 # ----------------------------------------------------------------------
 
-col_info, col_plot = st.columns([1, 2.5])
+V_res, LP_res, rV, rLP = hitung_sifat_bangun(tipe_bangun, params)
 
-with col_info:
-    st.subheader("Rumus & Perhitungan")
-    st.markdown(f"Panjang Rusuk Kubus ($s$) = **{sisi}**")
-    st.dataframe(pd.DataFrame(TITIK, index=['x', 'y', 'z']).T.reset_index().rename(columns={'index':'Titik'}), 
-                 use_container_width=True, hide_index=True)
+st.header(f"Analisis Bangun Ruang: {tipe_bangun}")
+st.markdown("---")
+
+col_plot, col_result = st.columns([3, 2])
+
+with col_plot:
+    # Tampilkan Model 3D
+    try:
+        fig_3d = buat_plot_3d(tipe_bangun, params)
+        st.plotly_chart(fig_3d, use_container_width=True)
+        # 
+    except Exception as e:
+        st.error(f"⚠️ Error saat visualisasi 3D: {e}")
+
+with col_result:
+    st.subheader("📝 Rumus & Hasil Perhitungan")
+    
+    # Menampilkan Dimensi
+    st.markdown("**Dimensi Input:**")
+    dim_str = ", ".join([f"${k} = {v}$" for k, v in params.items() if k not in ['c']])
+    st.markdown(dim_str)
     st.markdown("---")
 
+    # Volume
+    st.metric(
+        label="🚀 Volume ($V$)",
+        value=f"{V_res:,.2f} satuan³"
+    )
+    st.markdown("**Rumus Volume:**")
+    st.latex(rV)
+
+    st.markdown("---")
+
+    # Luas Permukaan
+    st.metric(
+        label="🛡️ Luas Permukaan ($LP$)",
+        value=f"{LP_res:,.2f} satuan²"
+    )
+    st.markdown("**Rumus Luas Permukaan:**")
+    st.latex(rLP)
     
-if pilihan_jarak == "Jarak Titik ke Titik":
-    with col_info:
-        st.subheader("1. Jarak Titik ke Titik")
-        titik1 = st.selectbox("Titik Awal:", list(TITIK.keys()), index=0) # A
-        titik2 = st.selectbox("Titik Akhir:", list(TITIK.keys()), index=6) # G
-        
-        P1 = TITIK[titik1]
-        P2 = TITIK[titik2]
-        
-        # Perhitungan Jarak Euklidian 3D
-        jarak_val = np.sqrt(sum([(P2[i] - P1[i])**2 for i in range(3)]))
-        
-        st.latex(f"Jarak = \\sqrt{{(x_2-x_1)^2 + (y_2-y_1)^2 + (z_2-z_1)^2}}")
-        st.latex(f"Jarak_{{{titik1}{titik2}}} = {jarak_val:.2f}")
+    st.info("Catatan: Perhitungan Luas Permukaan Prisma Segitiga mengasumsikan alas segitiga siku-siku.")
 
-        st.info(f"Jarak antara {titik1} dan {titik2} adalah **{jarak_val:.2f}** satuan.")
-
-    with col_plot:
-        # Visualisasi Jarak Titik ke Titik
-        fig_tt = buat_plot_kubus(sisi, highlight_points=[titik1, titik2], highlight_line=[P1, P2])
-        st.plotly_chart(fig_tt, use_container_width=True)
-
-elif pilihan_jarak == "Jarak Titik ke Garis":
-    
-    # Simplifikasi perhitungan: Jarak dari Titik P ke Garis AB (Rusuk)
-    titik_P_label = st.sidebar.selectbox("Titik P:", ['G', 'E', 'D', 'B'])
-    garis_AB_label = st.sidebar.selectbox("Garis (Rusuk):", ['AB', 'BC', 'FG', 'EH'])
-    
-    # Ambil koordinat garis
-    A_label, B_label = list(garis_AB_label)
-    P = TITIK[titik_P_label]
-    A = TITIK[A_label]
-    B = TITIK[B_label]
-    
-    # Vektor Garis AB
-    vec_AB = np.array(B) - np.array(A)
-    # Vektor AP
-    vec_AP = np.array(P) - np.array(A)
-
-    # Perhitungan Jarak Titik ke Garis (menggunakan proyeksi vektor)
-    # Jarak = |AP x AB| / |AB|
-    cross_prod = np.cross(vec_AP, vec_AB)
-    jarak_val = np.linalg.norm(cross_prod) / np.linalg.norm(vec_AB)
-
-    with col_info:
-        st.subheader("2. Jarak Titik ke Garis")
-        st.markdown(f"**Jarak dari Titik {titik_P_label} ke Garis {garis_AB_label}**.")
-        st.markdown("Rumus: Proyeksi Titik ke Garis (Panjang garis tegak lurus).")
-        st.latex("Jarak = \\frac{\\|\\vec{AP} \\times \\vec{AB}\\|}{\\|\\vec{AB}\\|}")
-        st.latex(f"Jarak = {jarak_val:.2f}")
-
-        st.info(f"Jarak Titik {titik_P_label} ke Garis {garis_AB_label} adalah **{jarak_val:.2f}** satuan.")
-
-    with col_plot:
-        # Visualisasi Titik ke Garis: Highlight titik, garis, dan garis tegak lurus (perlu vektor proyeksi)
-        # Menghitung titik proyeksi Q pada garis AB
-        t = np.dot(vec_AP, vec_AB) / np.dot(vec_AB, vec_AB)
-        Q = np.array(A) + t * vec_AB
-
-        fig_tg = buat_plot_kubus(sisi, highlight_points=[titik_P_label, A_label, B_label], highlight_line=[P, Q])
-        st.plotly_chart(fig_tg, use_container_width=True)
-
-elif pilihan_jarak == "Jarak Titik ke Bidang":
-    
-    # Simplifikasi: Jarak Titik ke Bidang (Alas/Atas/Samping)
-    titik_P_label = st.sidebar.selectbox("Titik P:", ['G', 'E', 'D', 'B'])
-    bidang_label = st.sidebar.selectbox("Bidang:", ['ABCD', 'EFGH', 'ABFE'])
-    
-    # Logika sederhana: Kubus simetris
-    # Jarak Titik ke Bidang = Rusuk (jika titik tidak pada bidang, dan bidang sejajar sumbu)
-    
-    jarak_val = 0.0
-    if titik_P_label in ['E', 'F', 'G', 'H'] and bidang_label == 'ABCD':
-        jarak_val = sisi
-        
-    elif titik_P_label in ['A', 'B', 'C', 'D'] and bidang_label == 'EFGH':
-        jarak_val = sisi
-        
-    elif titik_P_label in ['C', 'D', 'G', 'H'] and bidang_label == 'ABFE':
-        jarak_val = sisi
-        
-    else:
-        # Jika titik berada pada bidang (misal A ke ABCD), jaraknya 0
-        if titik_P_label in list(bidang_label):
-            jarak_val = 0.0
-        else:
-             # Jarak yang lebih kompleks (misalnya Titik E ke Bidang BGD)
-             # Kita batasi pada kasus sederhana untuk menghindari kompleksitas berlebih.
-             jarak_val = "Cek kasus sederhana/kompleks"
-        
-
-    with col_info:
-        st.subheader("3. Jarak Titik ke Bidang")
-        st.markdown(f"**Jarak dari Titik {titik_P_label} ke Bidang {bidang_label}**.")
-        st.markdown("Pada kubus dengan kasus sederhana (bidang sejajar), jaraknya adalah panjang rusuk.")
-        
-        st.latex(f"Jarak = {jarak_val}")
-
-        st.info(f"Jarak Titik {titik_P_label} ke Bidang {bidang_label} adalah **{jarak_val}** satuan.")
-
-    with col_plot:
-        # Visualisasi Titik ke Bidang: Highlight titik dan bidang
-        fig_tb = buat_plot_kubus(sisi, highlight_points=[titik_P_label])
-        
-        # Highlight Bidang (Bidang ABCD: titik 0,1,2,3)
-        # (Perlu menambahkan Mesh3d untuk bidang yang di-highlight)
-        
-        # Tambahkan fungsi highlight bidang yang lebih spesifik
-        x_indices = {'A':0, 'B':1, 'C':2, 'D':3, 'E':4, 'F':5, 'G':6, 'H':7}
-        bidang_map = {
-            'ABCD': [0, 1, 2, 3], 'EFGH': [4, 5, 6, 7], 
-            'ABFE': [0, 1, 5, 4], 'BCGF': [1, 2, 6, 5],
-            'CDHG': [2, 3, 7, 6], 'ADHE': [3, 0, 4, 7]
-        }
-        
-        if bidang_label in bidang_map:
-            i, j, k, l = bidang_map[bidang_label]
-            fig_tb.add_trace(go.Mesh3d(
-                x=[0, sisi, sisi, 0, 0, sisi, sisi, 0], y=[0, 0, sisi, sisi, 0, 0, sisi, sisi], z=[0, 0, 0, 0, sisi, sisi, sisi, sisi], 
-                i=[i], j=[j], k=[k], opacity=0.5, color='green', name=bidang_label
-            ))
-
-        st.plotly_chart(fig_tb, use_container_width=True)
 
 # --- Footer ---
 st.sidebar.markdown("---")
