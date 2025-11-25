@@ -1,98 +1,146 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd # Digunakan untuk menampilkan tabel koordinat
 
-# --- A. Fungsi Transformasi Geometri ---
+# --- A. Fungsi Bantu Matriks ---
 
-def translasi(titik, tx, ty):
-    """Melakukan Translasi (Pergeseran)"""
+def to_homogeneous(points):
+    """Mengubah array titik (2, N) menjadi koordinat homogen (3, N)"""
+    # Memastikan input dalam format (2, N)
+    if points.ndim != 2 or points.shape[0] != 2:
+        raise ValueError("Input harus array NumPy dengan shape (2, N)")
+    
+    # Tambahkan baris 1 di bawah untuk koordinat homogen
+    ones = np.ones((1, points.shape[1]))
+    return np.vstack((points, ones))
+
+def apply_matrix_transform(points, matrix):
+    """Menerapkan transformasi matriks pada semua titik."""
+    # 1. Ubah ke homogen (3, N)
+    points_h = to_homogeneous(points)
+    
+    # 2. Terapkan transformasi (Matriks 3x3 @ Titik 3xN)
+    transformed_h = matrix @ points_h
+    
+    # 3. Ubah kembali ke koordinat kartesius (2, N)
+    return transformed_h[:2, :]
+
+# --- B. Fungsi Transformasi Geometri (Vectorized) ---
+
+def translasi(points, tx, ty):
+    """Matriks Translasi"""
     T = np.array([[1, 0, tx],
                   [0, 1, ty],
                   [0, 0, 1]])
-    titik_homogen = np.append(titik, 1)
-    titik_baru_homogen = T @ titik_homogen
-    return titik_baru_homogen[:2]
+    return apply_matrix_transform(points, T)
 
-def rotasi(titik, sudut_deg, cx=0, cy=0):
-    """Melakukan Rotasi terhadap titik pusat (cx, cy)"""
+def rotasi(points, sudut_deg, cx=0, cy=0):
+    """Matriks Rotasi terhadap pusat (cx, cy)"""
     sudut_rad = np.deg2rad(sudut_deg)
+    cos = np.cos(sudut_rad)
+    sin = np.sin(sudut_rad)
     
-    # Matriks Rotasi
-    R = np.array([[np.cos(sudut_rad), -np.sin(sudut_rad), 0],
-                  [np.sin(sudut_rad), np.cos(sudut_rad), 0],
+    # Matriks Rotasi terhadap (0,0)
+    R = np.array([[cos, -sin, 0],
+                  [sin, cos, 0],
                   [0, 0, 1]])
     
-    # Titik dalam koordinat homogen
-    P_homogen = np.append(titik, 1)
+    # Matriks Translasi ke pusat rotasi
+    T1 = np.array([[1, 0, -cx], [0, 1, -cy], [0, 0, 1]]) # Ke (0,0)
+    T2 = np.array([[1, 0, cx], [0, 1, cy], [0, 0, 1]])  # Kembali ke (cx,cy)
     
-    # 1. Translasi titik ke pusat (cx, cy) ke (0,0)
-    T1 = np.array([[1, 0, -cx], [0, 1, -cy], [0, 0, 1]])
-    
-    # 2. Rotasi
-    # 3. Translasi kembali ke pusat (cx, cy)
-    T2 = np.array([[1, 0, cx], [0, 1, cy], [0, 0, 1]])
-    
-    # Transformasi gabungan
+    # Matriks Transformasi Gabungan: T2 * R * T1
     M = T2 @ R @ T1
-    
-    titik_baru_homogen = M @ P_homogen
-    return titik_baru_homogen[:2]
+    return apply_matrix_transform(points, M)
 
-def refleksi(titik, sumbu):
-    """Melakukan Refleksi terhadap sumbu x, y, atau garis y=x, y=-x"""
-    x, y = titik
+def refleksi(points, sumbu):
+    """Matriks Refleksi"""
     if sumbu == 'x':
-        return np.array([x, -y])
+        M = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
     elif sumbu == 'y':
-        return np.array([-x, y])
+        M = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
     elif sumbu == 'y=x':
-        return np.array([y, x])
+        M = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
     elif sumbu == 'y=-x':
-        return np.array([-y, -x])
-    return titik
+        M = np.array([[0, -1, 0], [-1, 0, 0], [0, 0, 1]])
+    else: # Default identity
+        M = np.eye(3) 
+        
+    return apply_matrix_transform(points, M)
 
-def dilatasi(titik, skala, cx=0, cy=0):
-    """Melakukan Dilatasi terhadap titik pusat (cx, cy)"""
-    x, y = titik
+def dilatasi(points, skala, cx=0, cy=0):
+    """Matriks Dilatasi terhadap pusat (cx, cy)"""
     
-    # 1. Translasi titik ke pusat (cx, cy) ke (0,0)
-    xt = x - cx
-    yt = y - cy
+    # Matriks Dilatasi terhadap (0,0)
+    D = np.array([[skala, 0, 0],
+                  [0, skala, 0],
+                  [0, 0, 1]])
     
-    # 2. Dilatasi
-    xd = xt * skala
-    yd = yt * skala
+    # Matriks Translasi ke pusat dilatasi
+    T1 = np.array([[1, 0, -cx], [0, 1, -cy], [0, 0, 1]]) # Ke (0,0)
+    T2 = np.array([[1, 0, cx], [0, 1, cy], [0, 0, 1]])  # Kembali ke (cx,cy)
     
-    # 3. Translasi kembali ke pusat (cx, cy)
-    x_baru = xd + cx
-    y_baru = yd + cy
-    
-    return np.array([x_baru, y_baru])
+    # Matriks Transformasi Gabungan: T2 * D * T1
+    M = T2 @ D @ T1
+    return apply_matrix_transform(points, M)
 
-# --- B. Fungsi Plotting ---
+# --- C. Fungsi Parsing Input ---
 
-def plot_transformasi(titik_awal, titik_akhir, nama_transformasi):
-    """Membuat plot interaktif menggunakan Matplotlib."""
-    fig, ax = plt.subplots(figsize=(6, 6))
+def parse_titik(titik_str):
+    """Menguraikan string input menjadi matriks titik (2, N)"""
+    points = []
+    # Bersihkan string dari spasi dan pisahkan berdasarkan titik koma
+    for pair in titik_str.replace(' ', '').split(';'):
+        if ',' in pair:
+            try:
+                x, y = map(float, pair.split(','))
+                points.append([x, y])
+            except ValueError:
+                continue
     
-    # Plot Titik Awal
-    ax.plot(titik_awal[0], titik_awal[1], 'o-', label='Titik Awal (A)', color='blue')
-    ax.text(titik_awal[0] + 0.2, titik_awal[1], f'A({titik_awal[0]:.1f}, {titik_awal[1]:.1f})', color='blue')
+    if not points:
+        return None, "Masukkan minimal satu pasang koordinat (format: x,y)."
 
-    # Plot Titik Akhir
-    ax.plot(titik_akhir[0], titik_akhir[1], 'x--', label=f'Hasil {nama_transformasi} (A\')', color='red')
-    ax.text(titik_akhir[0] + 0.2, titik_akhir[1], f"A'({titik_akhir[0]:.1f}, {titik_akhir[1]:.1f})", color='red')
+    points_mat = np.array(points).T # Shape (2, N)
+    
+    # Untuk plotting, tambahkan titik pertama di akhir untuk menutup bangun (jika > 1 titik)
+    if points_mat.shape[1] > 1:
+        points_closed = np.hstack((points_mat, points_mat[:, 0].reshape(-1, 1)))
+    else:
+        # Untuk kasus titik tunggal
+        points_closed = points_mat
+        
+    return points_closed, None # Shape (2, N_closed)
+
+# --- D. Fungsi Plotting ---
+
+def plot_transformasi(titik_awal_mat, titik_akhir_mat, nama_transformasi):
+    """Membuat plot interaktif untuk bangun datar/garis."""
+    fig, ax = plt.subplots(figsize=(7, 7))
+    
+    # Tentukan batas plot
+    all_points = np.hstack((titik_awal_mat, titik_akhir_mat))
+    if all_points.size > 0:
+        batas_min = np.floor(all_points.min() - 2)
+        batas_max = np.ceil(all_points.max() + 2)
+        ax.set_xlim(batas_min, batas_max)
+        ax.set_ylim(batas_min, batas_max)
+    
+    # 1. Plot Bangun/Garis Awal
+    if titik_awal_mat.shape[1] > 2: # Bangun Datar
+        ax.fill(titik_awal_mat[0, :-1], titik_awal_mat[1, :-1], 'blue', alpha=0.3, label='Bangun Awal')
+    ax.plot(titik_awal_mat[0, :], titik_awal_mat[1, :], 'b--', linewidth=1, marker='o', markersize=5, label='Bangun Awal (Garis)')
+    
+    # 2. Plot Hasil Transformasi
+    if titik_akhir_mat.shape[1] > 2: # Bangun Datar
+        ax.fill(titik_akhir_mat[0, :-1], titik_akhir_mat[1, :-1], 'red', alpha=0.5, label='Bangun Akhir')
+    ax.plot(titik_akhir_mat[0, :], titik_akhir_mat[1, :], 'r-', linewidth=2, marker='x', markersize=6, label=f'Hasil {nama_transformasi} (Garis)')
     
     # Pengaturan Grid
-    batas_min = min(titik_awal.min(), titik_akhir.min()) - 2
-    batas_max = max(titik_awal.max(), titik_akhir.max()) + 2
-    ax.set_xlim(batas_min, batas_max)
-    ax.set_ylim(batas_min, batas_max)
-    
-    # Garis Sumbu X dan Y
     ax.axhline(0, color='gray', linestyle='--')
     ax.axvline(0, color='gray', linestyle='--')
-    
+    ax.set_aspect('equal', adjustable='box')
     ax.set_xlabel('Sumbu X')
     ax.set_ylabel('Sumbu Y')
     ax.set_title(f"Visualisasi Transformasi: {nama_transformasi}")
@@ -101,50 +149,63 @@ def plot_transformasi(titik_awal, titik_akhir, nama_transformasi):
     st.pyplot(fig)
 
 
-# --- C. Struktur Aplikasi Streamlit ---
+# --- E. Struktur Aplikasi Streamlit Utama ---
 
 st.set_page_config(layout="wide")
 
-st.title("🔬 Virtual Lab Transformasi Geometri")
-st.markdown("Interaksi langsung dengan slider dan input untuk memahami konsep **Translasi**, **Rotasi**, **Dilatasi**, dan **Refleksi**.")
+st.title("🔬 Virtual Lab Transformasi Geometri (Bangun Datar)")
+st.markdown("Interaksi langsung untuk memahami **Translasi**, **Rotasi**, **Dilatasi**, dan **Refleksi** pada bangun datar/garis.")
 st.divider()
 
 # Input Koordinat Awal
-st.header("1️⃣ Koordinat Titik Awal (A)")
-col_x, col_y = st.columns(2)
+st.header("1️⃣ Koordinat Bangun Awal")
+st.markdown("**Petunjuk:** Masukkan koordinat simpul dalam format `x1,y1; x2,y2; x3,y3...`")
 
-with col_x:
-    titik_x = st.slider("Koordinat X (Absis)", -10.0, 10.0, 3.0, 0.1)
-with col_y:
-    titik_y = st.slider("Koordinat Y (Ordinat)", -10.0, 10.0, 2.0, 0.1)
+# Default untuk segitiga
+default_coord = "1,1; 4,1; 4,3" 
+titik_str = st.text_area(
+    "Simpul Bangun (Pisahkan dengan Titik Koma ';'):", 
+    value=default_coord, 
+    height=100
+)
 
-titik_awal = np.array([titik_x, titik_y])
-st.info(f"Titik Awal: **A({titik_awal[0]:.1f}, {titik_awal[1]:.1f})**")
+# Parse input
+titik_awal_mat, error_msg = parse_titik(titik_str)
+
+if error_msg:
+    st.error(error_msg)
+    st.stop()
+
+st.success(f"Ditemukan {titik_awal_mat.shape[1] - 1} simpul untuk diolah.")
+# Tampilkan koordinat awal dalam tabel
+df_awal = pd.DataFrame(titik_awal_mat[:, :-1].T, columns=['X', 'Y'])
+df_awal.index = [f'Simpul {i+1}' for i in range(df_awal.shape[0])]
+st.dataframe(df_awal)
 
 st.divider()
 
 # Pilihan Transformasi
-st.header("2️⃣ Pilih Jenis Transformasi")
+st.header("2️⃣ Pilih dan Atur Transformasi")
 transformasi_pilih = st.selectbox(
-    "Pilih transformasi yang ingin Anda lakukan:",
+    "Pilih jenis transformasi:",
     ('Translasi', 'Rotasi', 'Dilatasi', 'Refleksi')
 )
 st.divider()
 
-# --- D. Logika Transformasi Berdasarkan Pilihan ---
+# --- F. Logika Transformasi Berdasarkan Pilihan (Interaktif) ---
 
-titik_akhir = titik_awal
+titik_akhir_mat = np.copy(titik_awal_mat) # Default: tidak berubah
 
 if transformasi_pilih == 'Translasi':
     st.subheader("Translasi (Pergeseran)")
     col_tx, col_ty = st.columns(2)
     with col_tx:
-        tx = st.slider("Pergeseran pada Sumbu X (tx)", -5.0, 5.0, 2.0, 0.1)
+        tx = st.slider("Vektor X (tx)", -5.0, 5.0, 2.0, 0.1)
     with col_ty:
-        ty = st.slider("Pergeseran pada Sumbu Y (ty)", -5.0, 5.0, 1.0, 0.1)
+        ty = st.slider("Vektor Y (ty)", -5.0, 5.0, 1.0, 0.1)
     
-    titik_akhir = translasi(titik_awal, tx, ty)
-    st.success(f"Vektor Translasi: **T({tx:.1f}, {ty:.1f})**")
+    titik_akhir_mat = translasi(titik_awal_mat[:2, :], tx, ty)
+    st.info(f"Vektor Translasi: **T({tx:.1f}, {ty:.1f})**")
 
 elif transformasi_pilih == 'Rotasi':
     st.subheader("Rotasi (Perputaran)")
@@ -155,8 +216,8 @@ elif transformasi_pilih == 'Rotasi':
         pusat_x = st.number_input("Pusat Rotasi X (cx)", value=0.0)
         pusat_y = st.number_input("Pusat Rotasi Y (cy)", value=0.0)
         
-    titik_akhir = rotasi(titik_awal, sudut, pusat_x, pusat_y)
-    st.success(f"Rotasi **{sudut}°** terhadap pusat **P({pusat_x:.1f}, {pusat_y:.1f})**")
+    titik_akhir_mat = rotasi(titik_awal_mat[:2, :], sudut, pusat_x, pusat_y)
+    st.info(f"Rotasi **{sudut}°** terhadap pusat **P({pusat_x:.1f}, {pusat_y:.1f})**")
 
 elif transformasi_pilih == 'Dilatasi':
     st.subheader("Dilatasi (Perkalian Skala)")
@@ -167,34 +228,37 @@ elif transformasi_pilih == 'Dilatasi':
         pusat_x = st.number_input("Pusat Dilatasi X (cx)", value=0.0)
         pusat_y = st.number_input("Pusat Dilatasi Y (cy)", value=0.0)
         
-    titik_akhir = dilatasi(titik_awal, skala, pusat_x, pusat_y)
-    st.success(f"Dilatasi dengan faktor skala **k={skala:.1f}** terhadap pusat **P({pusat_x:.1f}, {pusat_y:.1f})**")
+    titik_akhir_mat = dilatasi(titik_awal_mat[:2, :], skala, pusat_x, pusat_y)
+    st.info(f"Dilatasi dengan faktor skala **k={skala:.1f}** terhadap pusat **P({pusat_x:.1f}, {pusat_y:.1f})**")
 
 elif transformasi_pilih == 'Refleksi':
     st.subheader("Refleksi (Pencerminan)")
     sumbu_refleksi = st.selectbox(
         "Sumbu atau Garis Refleksi:",
-        ('Sumbu X (y=0)', 'Sumbu Y (x=0)', 'Garis y=x', 'Garis y=-x'),
-        format_func=lambda x: x.replace('Sumbu X (y=0)', 'Sumbu X').replace('Sumbu Y (x=0)', 'Sumbu Y')
+        ('Sumbu X', 'Sumbu Y', 'Garis y=x', 'Garis y=-x')
     )
     
     # Mapping pilihan ke kunci fungsi
-    map_sumbu = {'Sumbu X (y=0)': 'x', 'Sumbu Y (x=0)': 'y', 'Garis y=x': 'y=x', 'Garis y=-x': 'y=-x'}
+    map_sumbu = {'Sumbu X': 'x', 'Sumbu Y': 'y', 'Garis y=x': 'y=x', 'Garis y=-x': 'y=-x'}
     
-    titik_akhir = refleksi(titik_awal, map_sumbu[sumbu_refleksi])
-    st.success(f"Refleksi terhadap **{sumbu_refleksi}**")
+    titik_akhir_mat = refleksi(titik_awal_mat[:2, :], map_sumbu[sumbu_refleksi])
+    st.info(f"Refleksi terhadap **{sumbu_refleksi}**")
 
 
-# --- E. Visualisasi Hasil ---
-st.header("3️⃣ Visualisasi Hasil Transformasi")
+# --- G. Visualisasi Hasil ---
+st.header("3️⃣ Visualisasi dan Hasil Akhir")
 
-# Hitung dan Tampilkan Koordinat Akhir
-if titik_awal.all() != titik_akhir.all():
-     st.markdown(f"Titik **A'** (Hasil Transformasi): **({titik_akhir[0]:.1f}, {titik_akhir[1]:.1f})**")
-else:
-     st.markdown(f"Titik **A'** (Hasil Transformasi): **A({titik_akhir[0]:.1f}, {titik_akhir[1]:.1f})** (Sama dengan Awal)")
+col_plot, col_tabel = st.columns(2)
 
-plot_transformasi(titik_awal, titik_akhir, transformasi_pilih)
+with col_plot:
+    plot_transformasi(titik_awal_mat, titik_akhir_mat, transformasi_pilih)
+    
+with col_tabel:
+    st.subheader("Tabel Koordinat Hasil Transformasi (A')")
+    # Membuat DataFrame untuk titik akhir
+    df_akhir = pd.DataFrame(titik_akhir_mat[:2, :-1].T, columns=['X\'', 'Y\''])
+    df_akhir.index = [f'Simpul {i+1}' for i in range(df_akhir.shape[0])]
+    st.dataframe(df_akhir)
 
 st.divider()
-st.caption("Dibuat dengan Python dan Streamlit. Interaksi visual memudahkan pemahaman konsep transformasi geometri.")
+st.caption("Dibuat untuk tujuan edukasi. Penggunaan matriks koordinat homogen memastikan transformasi yang akurat.")
