@@ -1,84 +1,172 @@
-# ... (Semua fungsi di atas dipertahankan) ...
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-# --- C. Struktur Aplikasi Streamlit Utama ---
+# --- Konfigurasi Halaman Utama ---
+st.set_page_config(
+    page_title="Virtual Lab Barisan & Deret",
+    page_icon="➗",
+    layout="wide"  # Menggunakan layout lebar untuk visualisasi
+)
 
-st.set_page_config(layout="wide")
+st.title("➗ Virtual Lab: Barisan dan Deret")
+st.markdown("Eksplorasi interaktif Barisan Aritmatika dan Geometri.")
 
-st.title("🔢 Virtual Lab Barisan & Deret")
-# ... (Deskripsi) ...
-st.divider()
+# ----------------------------------------------------------------------
+#                         SIDEBAR (INPUT - KIRI)
+# ----------------------------------------------------------------------
 
-# Menggunakan Tabs
-tab_aritmatika, tab_geometri = st.tabs(["➕ Barisan & Deret Aritmatika", "✖️ Barisan & Deret Geometri"])
+st.sidebar.header("⚙️ Pengaturan Barisan")
 
-# --- TAB ARITMATIKA ---
-with tab_aritmatika:
-    col_input, col_output = st.columns([1, 1])
+# Pilihan Tipe Barisan
+tipe_barisan = st.sidebar.radio(
+    "Pilih Tipe Barisan:",
+    ("Aritmatika", "Geometri")
+)
 
-    with col_input:
-        st.subheader("Parameter Barisan Aritmatika")
-        
-        # Input
-        a_arit = st.number_input("Suku Awal (a)", value=2, step=1, key='a_arit')
-        b = st.slider("Beda (b)", -5, 5, 3, key='b')
-        n_arit = st.slider("Jumlah Suku (n)", 2, 20, 10, key='n_arit')
-        
+# Input Parameter Umum
+suku_pertama = st.sidebar.number_input(
+    "Suku Pertama ($a$):",
+    min_value=-100.0,
+    max_value=100.0,
+    value=2.0,
+    step=1.0
+)
+
+banyak_suku = st.sidebar.slider(
+    "Banyak Suku ($n$) yang Ditampilkan:",
+    min_value=2,
+    max_value=20,
+    value=10,
+    step=1
+)
+
+# Input Parameter Spesifik
+if tipe_barisan == "Aritmatika":
+    st.sidebar.subheader("Barisan Aritmatika")
+    beda = st.sidebar.number_input(
+        "Beda ($b$):",
+        min_value=-20.0,
+        max_value=20.0,
+        value=3.0,
+        step=1.0
+    )
+    # Fungsi Barisan Aritmatika
+    def hitung_aritmatika(a, b, n):
+        suku_ke_n = a + (n - 1) * b
+        jumlah_n = n / 2 * (2 * a + (n - 1) * b)
+        return suku_ke_n, jumlah_n
+
+elif tipe_barisan == "Geometri":
+    st.sidebar.subheader("Barisan Geometri")
+    rasio = st.sidebar.number_input(
+        "Rasio ($r$):",
+        min_value=-5.0,
+        max_value=5.0,
+        value=2.0,
+        step=0.5
+    )
+    # Fungsi Barisan Geometri
+    def hitung_geometri(a, r, n):
+        suku_ke_n = a * (r ** (n - 1))
+        if r != 1:
+            jumlah_n = a * ((r ** n) - 1) / (r - 1)
+        else:
+            jumlah_n = a * n
+        return suku_ke_n, jumlah_n
+
+
+# ----------------------------------------------------------------------
+#                         MAIN AREA (OUTPUT - KANAN)
+# ----------------------------------------------------------------------
+
+tab1, tab2 = st.tabs(["📝 Hasil Perhitungan", "📈 Visualisasi Data"])
+
+with tab1:
+    st.header(f"Hasil Eksplorasi Barisan {tipe_barisan}")
+    st.markdown(f"**Parameter:** $a$ = {suku_pertama}, $n$ = {banyak_suku}")
+
+    if tipe_barisan == "Aritmatika":
+        st.markdown(f"**Beda ($b$)** = {beda}")
+
         # Perhitungan
-        suku_arit, sn_arit = hitung_aritmatika(a_arit, b, n_arit)
+        data_suku = [suku_pertama + (i - 1) * beda for i in range(1, banyak_suku + 1)]
+        suku_ke_n_val, jumlah_n_val = hitung_aritmatika(suku_pertama, beda, banyak_suku)
         
-        st.subheader("Hasil Perhitungan")
-        # --- BARIS YANG DIPERBAIKI (MENGHILANGKAN {n} DARI LATEX) ---
-        st.metric(label=f"Jumlah {n_arit} Suku Pertama ($S_N$)", value=f"{sn_arit:.2f}")
-        st.metric(label=f"Suku Terakhir ($U_N$)", value=f"{suku_arit[-1]:.2f}")
-        # --------------------------------------------------------
-
-    with col_output:
-        st.subheader("Visualisasi Pertumbuhan Barisan")
-        plot_barisan(suku_arit, "Aritmatika")
+        # Rumus
+        st.subheader("Rumus Barisan Aritmatika")
+        st.latex("U_n = a + (n-1)b")
+        st.latex("S_n = \\frac{n}{2} (2a + (n-1)b)")
         
-        st.subheader("Tabel Barisan")
-        df_arit = pd.DataFrame({
-            "n": np.arange(1, n_arit + 1),
-            "Un (Suku ke-n)": suku_arit,
-            "Sn (Jumlah Parsial)": np.cumsum(suku_arit) 
-        })
-        st.dataframe(df_arit, hide_index=True)
+        # Hasil Akhir
+        st.metric(f"Suku ke-{banyak_suku} ($U_{banyak_suku}$)", f"{suku_ke_n_val:,.2f}")
+        st.metric(f"Jumlah {banyak_suku} Suku Pertama ($S_{banyak_suku}$)", f"{jumlah_n_val:,.2f}")
+
+    elif tipe_barisan == "Geometri":
+        st.markdown(f"**Rasio ($r$)** = {rasio}")
+
+        # Perhitungan
+        data_suku = [suku_pertama * (rasio ** (i - 1)) for i in range(1, banyak_suku + 1)]
+        suku_ke_n_val, jumlah_n_val = hitung_geometri(suku_pertama, rasio, banyak_suku)
+
+        # Rumus
+        st.subheader("Rumus Barisan Geometri")
+        st.latex("U_n = a \\cdot r^{n-1}")
+        
+        if rasio != 1:
+            st.latex("S_n = \\frac{a(r^n - 1)}{r - 1}, \\quad r \\ne 1")
+        else:
+            st.latex("S_n = n \\cdot a, \\quad r = 1")
+            
+        # Hasil Akhir
+        st.metric(f"Suku ke-{banyak_suku} ($U_{banyak_suku}$)", f"{suku_ke_n_val:,.2f}")
+        st.metric(f"Jumlah {banyak_suku} Suku Pertama ($S_{banyak_suku}$)", f"{jumlah_n_val:,.2f}")
 
 
-# --- TAB GEOMETRI ---
-with tab_geometri:
-    col_input, col_output = st.columns([1, 1])
+    # Tampilan Data Suku dalam Tabel
+    st.subheader("Tabel Data Suku")
+    df = pd.DataFrame({
+        'Suku Ke- ($n$)': range(1, banyak_suku + 1),
+        'Nilai Suku ($U_n$)': data_suku,
+    })
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+
+with tab2:
+    st.header("Visualisasi Perkembangan Suku")
     
-    with col_input:
-        st.subheader("Parameter Barisan Geometri")
-        
-        # Input
-        a_geo = st.number_input("Suku Awal (a)", value=3, step=1, key='a_geo')
-        r = st.slider("Rasio (r)", -2.0, 3.0, 2.0, 0.1, key='r')
-        n_geo = st.slider("Jumlah Suku (n)", 2, 15, 8, key='n_geo')
-        
-        if abs(r) >= 1.0:
-            st.warning("Peringatan: Jika |r| ≥ 1, deret tak hingga adalah divergen.")
-        
-        # Perhitungan
-        suku_geo, sn_geo = hitung_geometri(a_geo, r, n_geo)
-        
-        st.subheader("Hasil Perhitungan")
-        # --- BARIS YANG DIPERBAIKI (MENGHILANGKAN {n} DARI LATEX) ---
-        st.metric(label=f"Jumlah {n_geo} Suku Pertama ($S_N$)", value=f"{sn_geo:.2f}")
-        st.metric(label=f"Suku Terakhir ($U_N$)", value=f"{suku_geo[-1]:.2f}")
-        # ---------------------------------------------------------
+    # Membuat DataFrame untuk Plot
+    plot_df = pd.DataFrame({
+        'n': range(1, banyak_suku + 1),
+        'Un': data_suku,
+        'Sn': np.cumsum(data_suku) # Menghitung Deret Kumulatif (Sn)
+    })
+    
+    col_plot1, col_plot2 = st.columns(2)
+    
+    with col_plot1:
+        st.subheader("Grafik Barisan (Nilai $U_n$)")
+        fig_un, ax_un = plt.subplots()
+        ax_un.plot(plot_df['n'], plot_df['Un'], marker='o', linestyle='-', color='teal')
+        ax_un.set_xlabel("Suku Ke- ($n$)")
+        ax_un.set_ylabel("Nilai Suku ($U_n$)")
+        ax_un.set_title(f"Barisan {tipe_barisan}")
+        ax_un.grid(True, linestyle='--', alpha=0.6)
+        st.pyplot(fig_un)
+        # 
 
-    with col_output:
-        st.subheader("Visualisasi Pertumbuhan Barisan")
-        plot_barisan(suku_geo, "Geometri")
-        
-        st.subheader("Tabel Barisan")
-        df_geo = pd.DataFrame({
-            "n": np.arange(1, n_geo + 1),
-            "Un (Suku ke-n)": suku_geo.round(2),
-            "Sn (Jumlah Parsial)": np.cumsum(suku_geo).round(2)
-        })
-        st.dataframe(df_geo, hide_index=True)
+    with col_plot2:
+        st.subheader("Grafik Deret (Jumlah $S_n$)")
+        fig_sn, ax_sn = plt.subplots()
+        ax_sn.bar(plot_df['n'], plot_df['Sn'], color='maroon')
+        ax_sn.set_xlabel("Suku Ke- ($n$)")
+        ax_sn.set_ylabel("Jumlah Suku ($S_n$)")
+        ax_sn.set_title(f"Deret {tipe_barisan}")
+        ax_sn.grid(axis='y', linestyle='--', alpha=0.6)
+        st.pyplot(fig_sn)
+        # 
 
-st.divider()
+# --- Footer ---
+st.sidebar.markdown("---")
+st.sidebar.info("Aplikasi dibuat untuk tujuan edukasi interaktif.")
