@@ -5,13 +5,16 @@ import math
 
 # --- Konfigurasi Halaman Utama ---
 st.set_page_config(
-    page_title="Virtual Lab Geometri Dimensi Tiga Komprehensif",
-    page_icon="🧱",
+    page_title="Virtual Lab Bangun Ruang 3D",
+    page_icon="🧊",
     layout="wide"
 )
 
-st.title("🧱 Virtual Lab: Geometri Dimensi Tiga Komprehensif")
-st.markdown("Eksplorasi interaktif **Volume** dan **Luas Permukaan** berbagai bangun ruang 3D.")
+st.title("🧊 Virtual Lab: Geometri Dimensi Tiga Lengkap")
+st.markdown("Eksplorasi interaktif Volume dan Luas Permukaan berbagai bangun ruang.")
+
+# Definisikan konstanta PI
+PI = math.pi
 
 # ----------------------------------------------------------------------
 #                         SIDEBAR (INPUT - KIRI)
@@ -20,193 +23,166 @@ st.markdown("Eksplorasi interaktif **Volume** dan **Luas Permukaan** berbagai ba
 st.sidebar.header("⚙️ Pengaturan Bangun Ruang")
 
 # Pilihan Tipe Bangun Ruang
-tipe_bangun = st.sidebar.selectbox(
+bangun_ruang = st.sidebar.selectbox(
     "Pilih Bangun Ruang:",
-    ("Kubus", "Balok", "Tabung", "Limas Segiempat", "Prisma Segitiga")
+    ("Kubus", "Balok", "Prisma Segitiga", "Limas Segiempat", "Kerucut", "Tabung", "Bola")
 )
 
-st.sidebar.markdown("---")
-st.sidebar.subheader(f"Input Dimensi ({tipe_bangun})")
+st.sidebar.subheader("Input Dimensi")
 
-# Input Parameter Bangun Ruang Spesifik
-params = {}
-if tipe_bangun == "Kubus":
+# ----------------------------------------------------------------------
+#                      FUNGSI PERHITUNGAN & RUMUS
+# ----------------------------------------------------------------------
+
+# Kontainer untuk menyimpan hasil
+hasil = {}
+
+if bangun_ruang == "Kubus":
     s = st.sidebar.number_input("Panjang Rusuk ($s$):", min_value=1.0, value=5.0, step=0.5)
-    params['s'] = s
-elif tipe_bangun == "Balok":
-    p = st.sidebar.number_input("Panjang ($p$):", min_value=1.0, value=7.0, step=0.5)
-    l = st.sidebar.number_input("Lebar ($l$):", min_value=1.0, value=4.0, step=0.5)
-    t = st.sidebar.number_input("Tinggi ($t$):", min_value=1.0, value=5.0, step=0.5)
-    params = {'p': p, 'l': l, 't': t}
-elif tipe_bangun == "Tabung":
-    r = st.sidebar.number_input("Jari-jari Alas ($r$):", min_value=1.0, value=3.0, step=0.5)
-    t = st.sidebar.number_input("Tinggi Tabung ($t$):", min_value=1.0, value=8.0, step=0.5)
-    params = {'r': r, 't': t}
-elif tipe_bangun == "Limas Segiempat":
-    s_alas = st.sidebar.number_input("Sisi Alas ($s$):", min_value=1.0, value=6.0, step=0.5)
-    t_limas = st.sidebar.number_input("Tinggi Limas ($t$):", min_value=1.0, value=7.0, step=0.5)
-    params = {'s_alas': s_alas, 't': t_limas}
-elif tipe_bangun == "Prisma Segitiga":
-    a_alas = st.sidebar.number_input("Alas Segitiga ($a_{alas}$):", min_value=1.0, value=4.0, step=0.5)
-    t_alas = st.sidebar.number_input("Tinggi Segitiga ($t_{alas}$):", min_value=1.0, value=3.0, step=0.5)
-    t_prisma = st.sidebar.number_input("Tinggi Prisma ($t_{prisma}$):", min_value=1.0, value=10.0, step=0.5)
-    # Untuk Luas Permukaan, anggap segitiga alas siku-siku (sisi miring c)
-    c_miring = math.sqrt(a_alas**2 + t_alas**2)
-    params = {'a': a_alas, 't_alas': t_alas, 't_prisma': t_prisma, 'c': c_miring}
-
-# ----------------------------------------------------------------------
-#                      FUNGSI PERHITUNGAN
-# ----------------------------------------------------------------------
-
-def hitung_sifat_bangun(tipe, p):
-    V = 0
-    LP = 0
-    rumus_V = ""
-    rumus_LP = ""
-
-    if tipe == "Kubus":
-        s = p['s']
-        V = s ** 3
-        LP = 6 * s ** 2
-        rumus_V = "V = s^3"
-        rumus_LP = "LP = 6 \\cdot s^2"
     
-    elif tipe == "Balok":
-        p, l, t = p['p'], p['l'], p['t']
-        V = p * l * t
-        LP = 2 * (p * l + p * t + l * t)
-        rumus_V = "V = p \\cdot l \\cdot t"
-        rumus_LP = "LP = 2(pl + pt + lt)"
+    hasil['Volume'] = s ** 3
+    hasil['Luas Permukaan'] = 6 * (s ** 2)
+    rumus = {"Volume": "V = s^3", "Luas Permukaan": "LP = 6 \\cdot s^2"}
+    
+elif bangun_ruang == "Balok":
+    p = st.sidebar.number_input("Panjang ($p$):", min_value=1.0, value=6.0, step=0.5)
+    l = st.sidebar.number_input("Lebar ($l$):", min_value=1.0, value=4.0, step=0.5)
+    t = st.sidebar.number_input("Tinggi ($t$):", min_value=1.0, value=3.0, step=0.5)
+    
+    hasil['Volume'] = p * l * t
+    hasil['Luas Permukaan'] = 2 * (p * l + p * t + l * t)
+    rumus = {"Volume": "V = p \\cdot l \\cdot t", "Luas Permukaan": "LP = 2(pl + pt + lt)"}
 
-    elif tipe == "Tabung":
-        r, t = p['r'], p['t']
-        V = math.pi * r ** 2 * t
-        LP = 2 * math.pi * r * (r + t)
-        rumus_V = "V = \\pi r^2 t"
-        rumus_LP = "LP = 2 \\pi r(r + t)"
+elif bangun_ruang == "Prisma Segitiga":
+    alas_segitiga = st.sidebar.number_input("Alas Segitiga ($a$):", min_value=1.0, value=4.0, step=0.5)
+    tinggi_segitiga = st.sidebar.number_input("Tinggi Segitiga ($t_s$):", min_value=1.0, value=3.0, step=0.5)
+    tinggi_prisma = st.sidebar.number_input("Tinggi Prisma ($T$):", min_value=1.0, value=7.0, step=0.5)
+    
+    luas_alas = 0.5 * alas_segitiga * tinggi_segitiga
+    
+    # Asumsi Prisma tegak dengan alas segitiga siku-siku, sisi miring:
+    sisi_miring = math.sqrt(alas_segitiga**2 + tinggi_segitiga**2) 
+    keliling_alas = alas_segitiga + tinggi_segitiga + sisi_miring
 
-    elif tipe == "Limas Segiempat":
-        s_alas, t = p['s_alas'], p['t']
-        Luas_Alas = s_alas ** 2
-        # Untuk Luas Permukaan, hitung Tinggi Sisi Tegak (tinggi segitiga, Ts)
-        Ts = math.sqrt((s_alas / 2) ** 2 + t ** 2)
-        Luas_Sisi_Tegak = 4 * (0.5 * s_alas * Ts)
-        
-        V = (1/3) * Luas_Alas * t
-        LP = Luas_Alas + Luas_Sisi_Tegak
-        rumus_V = "V = \\frac{1}{3} L_{alas} t"
-        rumus_LP = "LP = L_{alas} + L_{sisi \\, tegak}"
+    hasil['Volume'] = luas_alas * tinggi_prisma
+    hasil['Luas Permukaan'] = 2 * luas_alas + keliling_alas * tinggi_prisma
+    rumus = {"Volume": "V = Luas_{alas} \\cdot T", "Luas Permukaan": "LP = 2 \\cdot Luas_{alas} + K_{alas} \\cdot T"}
 
-    elif tipe == "Prisma Segitiga":
-        a, t_alas, t_prisma, c = p['a'], p['t_alas'], p['t_prisma'], p['c']
-        Luas_Alas = 0.5 * a * t_alas
-        Keliling_Alas = a + t_alas + c # Asumsi Segitiga Siku-siku
-        
-        V = Luas_Alas * t_prisma
-        LP = 2 * Luas_Alas + Keliling_Alas * t_prisma
-        rumus_V = "V = L_{alas} t_{prisma}"
-        rumus_LP = "LP = 2 L_{alas} + K_{alas} t_{prisma}"
-        
-    return V, LP, rumus_V, rumus_LP
+elif bangun_ruang == "Limas Segiempat":
+    sisi_alas_p = st.sidebar.number_input("Panjang Alas ($p$):", min_value=1.0, value=5.0, step=0.5)
+    sisi_alas_l = st.sidebar.number_input("Lebar Alas ($l$):", min_value=1.0, value=5.0, step=0.5)
+    tinggi_limas = st.sidebar.number_input("Tinggi Limas ($T$):", min_value=1.0, value=6.0, step=0.5)
+    
+    luas_alas = sisi_alas_p * sisi_alas_l
+    
+    # Tinggi sisi tegak 1 (untuk sisi p)
+    tinggi_sisi1 = math.sqrt(tinggi_limas**2 + (sisi_alas_l/2)**2)
+    # Tinggi sisi tegak 2 (untuk sisi l)
+    tinggi_sisi2 = math.sqrt(tinggi_limas**2 + (sisi_alas_p/2)**2)
+    
+    luas_sisi_tegak = 2 * (0.5 * sisi_alas_p * tinggi_sisi1) + 2 * (0.5 * sisi_alas_l * tinggi_sisi2)
 
-# Fungsi untuk membuat visualisasi 3D (disederhanakan)
-def buat_plot_3d(tipe, p):
+    hasil['Volume'] = (1/3) * luas_alas * tinggi_limas
+    hasil['Luas Permukaan'] = luas_alas + luas_sisi_tegak
+    rumus = {"Volume": "V = \\frac{1}{3} \\cdot Luas_{alas} \\cdot T", "Luas Permukaan": "LP = Luas_{alas} + Luas_{sisi \\, tegak}"}
+
+elif bangun_ruang == "Kerucut":
+    r = st.sidebar.number_input("Jari-jari Alas ($r$):", min_value=1.0, value=3.0, step=0.5)
+    t = st.sidebar.number_input("Tinggi ($t$):", min_value=1.0, value=4.0, step=0.5)
+    
+    s_kerucut = math.sqrt(r**2 + t**2) # Garis pelukis
+    
+    luas_alas = PI * (r ** 2)
+    luas_selimut = PI * r * s_kerucut
+
+    hasil['Volume'] = (1/3) * PI * (r ** 2) * t
+    hasil['Luas Permukaan'] = luas_alas + luas_selimut
+    rumus = {"Volume": "V = \\frac{1}{3} \\cdot \\pi \\cdot r^2 \\cdot t", "Luas Permukaan": "LP = \\pi r (r + s)"}
+
+elif bangun_ruang == "Tabung":
+    r = st.sidebar.number_input("Jari-jari Alas ($r$):", min_value=1.0, value=3.0, step=0.5)
+    t = st.sidebar.number_input("Tinggi ($t$):", min_value=1.0, value=6.0, step=0.5)
+    
+    luas_alas = PI * (r ** 2)
+    luas_selimut = 2 * PI * r * t
+
+    hasil['Volume'] = PI * (r ** 2) * t
+    hasil['Luas Permukaan'] = 2 * luas_alas + luas_selimut
+    rumus = {"Volume": "V = \\pi \\cdot r^2 \\cdot t", "Luas Permukaan": "LP = 2 \\pi r (r + t)"}
+
+elif bangun_ruang == "Bola":
+    r = st.sidebar.number_input("Jari-jari ($r$):", min_value=1.0, value=4.0, step=0.5)
+    
+    hasil['Volume'] = (4/3) * PI * (r ** 3)
+    hasil['Luas Permukaan'] = 4 * PI * (r ** 2)
+    rumus = {"Volume": "V = \\frac{4}{3} \\cdot \\pi \\cdot r^3", "Luas Permukaan": "LP = 4 \\pi r^2"}
+
+
+# ----------------------------------------------------------------------
+#                      FUNGSI VISUALISASI 3D (Plotly)
+# ----------------------------------------------------------------------
+
+def buat_plot_3d(bentuk, dimensi):
     fig = go.Figure()
     
-    if tipe == "Kubus":
-        s = p['s']
-        # Definisi koordinat kubus
+    if bentuk == "Kubus":
+        s = dimensi['s']
+        # Definisi titik kubus
         x = [0, s, s, 0, 0, s, s, 0]
         y = [0, 0, s, s, 0, 0, s, s]
         z = [0, 0, 0, 0, s, s, s, s]
-        
-        # Sisi-sisi yang membentuk permukaan kubus
         i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
-        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
-        k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
+        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 7]
+        k = [0, 7, 2, 3, 6, 5, 1, 1, 3, 2, 5, 4]
         
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
-                                color='lightblue', opacity=0.60))
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, opacity=0.5, color='lightblue', name='Kubus'))
         
-    elif tipe == "Balok":
-        p, l, t = p['p'], p['l'], p['t']
+    elif bentuk == "Balok":
+        p, l, t = dimensi['p'], dimensi['l'], dimensi['t']
         x = [0, p, p, 0, 0, p, p, 0]
         y = [0, 0, l, l, 0, 0, l, l]
         z = [0, 0, 0, 0, t, t, t, t]
-        
         i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
-        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
-        k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
-        
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
-                                color='lightgreen', opacity=0.60))
+        j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 7]
+        k = [0, 7, 2, 3, 6, 5, 1, 1, 3, 2, 5, 4]
 
-    elif tipe == "Tabung":
-        r, t = p['r'], p['t']
-        # Membuat titik-titik tabung
-        u = np.linspace(0, 2 * np.pi, 50)
-        v = np.linspace(0, t, 10)
-        u, v = np.meshgrid(u, v)
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, opacity=0.5, color='orange', name='Balok'))
+
+    elif bentuk == "Tabung":
+        r, t = dimensi['r'], dimensi['t']
+        u, v = np.mgrid[0:2*PI:50j, 0:t:1j]
         x = r * np.cos(u)
         y = r * np.sin(u)
         z = v
-        
-        fig.add_trace(go.Surface(x=x, y=y, z=z, colorscale='Reds', opacity=0.6, showscale=False))
-        
-        # Alas dan Atas Tabung
-        fig.add_trace(go.Surface(x=r * np.cos(u), y=r * np.sin(u), z=0 * np.ones_like(u), colorscale='Reds', opacity=0.6, showscale=False))
-        fig.add_trace(go.Surface(x=r * np.cos(u), y=r * np.sin(u), z=t * np.ones_like(u), colorscale='Reds', opacity=0.6, showscale=False))
-        
-        
-    elif tipe == "Limas Segiempat":
-        s_alas, t = p['s_alas'], p['t']
-        # Titik: Puncak (0,0,t), Alas (s/2, s/2, 0)
-        h = s_alas / 2
-        # Titik-titik
-        x = [0, h, -h, -h, h]
-        y = [0, h, h, -h, -h]
-        z = [t, 0, 0, 0, 0]
-        
-        # Sisi-sisi
-        i = [1, 2, 3, 4]  # Sisi Tegak
-        j = [2, 3, 4, 1]
-        k = [0, 0, 0, 0]
-        
-        # Alas
-        fig.add_trace(go.Mesh3d(x=[h, -h, -h, h], y=[h, h, -h, -h], z=[0, 0, 0, 0], 
-                                i=[0,0], j=[1,1], k=[2,3], color='lightgray', opacity=0.8, showlegend=False))
-        
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
-                                color='yellow', opacity=0.60))
-        
-    elif tipe == "Prisma Segitiga":
-        a, t_alas, t_prisma = p['a'], p['t_alas'], p['t_prisma']
-        # Asumsi alas segitiga siku-siku (0,0,0), (a,0,0), (0,t_alas,0)
-        
-        # Koordinat 6 titik (depan dan belakang)
-        X = [0, a, 0, 0, a, 0]
-        Y = [0, 0, t_alas, 0, 0, t_alas]
-        Z = [0, 0, 0, t_prisma, t_prisma, t_prisma]
-        
-        # Sisi-sisi: 2 Alas Segitiga (0,1,2) dan 3 Sisi Tegak
-        i = [0, 3, 1, 4, 2, 5, 0, 1]
-        j = [1, 4, 2, 5, 0, 3, 2, 3]
-        k = [2, 5, 0, 3, 1, 4, 3, 4]
 
-        fig.add_trace(go.Mesh3d(x=X, y=Y, z=Z, i=i, j=j, k=k,
-                                color='pink', opacity=0.60))
+        fig.add_trace(go.Surface(x=x, y=y, z=z, surfacecolor=np.full_like(x, 0), opacity=0.5, color='green', showscale=False, name='Selimut'))
+        
+        # Alas dan Tutup
+        fig.add_trace(go.Surface(x=[r*np.cos(u[:,0])], y=[r*np.sin(u[:,0])], z=[np.zeros_like(u[:,0])], surfacecolor=np.full_like(u[:,0], 0), opacity=0.6, showscale=False, name='Alas'))
+        fig.add_trace(go.Surface(x=[r*np.cos(u[:,0])], y=[r*np.sin(u[:,0])], z=[np.full_like(u[:,0], t)], surfacecolor=np.full_like(u[:,0], 0), opacity=0.6, showscale=False, name='Tutup'))
 
-
-    # Pengaturan Layout Umum
+    elif bentuk == "Bola":
+        r = dimensi['r']
+        u, v = np.mgrid[0:2*PI:50j, 0:PI:50j]
+        x = r * np.cos(u) * np.sin(v)
+        y = r * np.sin(u) * np.sin(v)
+        z = r * np.cos(v)
+        
+        fig.add_trace(go.Surface(x=x, y=y, z=z, surfacecolor=z, colorscale='Reds', opacity=0.8, name='Bola'))
+        
+    else:
+        # Untuk Prisma, Limas, Kerucut, gunakan placeholder atau tampilkan informasi
+        fig.update_layout(annotations=[dict(text="Visualisasi 3D Kompleks (Plotly) Tidak Tersedia untuk bentuk ini.", 
+                                           showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)])
+    
+    # Pengaturan umum plot 3D
     fig.update_layout(
         scene=dict(
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            zaxis=dict(visible=False),
-            aspectmode='data'  # Memastikan rasio aspek realistis
+            xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False),
+            aspectmode='data'
         ),
-        title=f"Model 3D Interaktif {tipe_bangun}",
-        height=600,
+        title=f"Model 3D Interaktif {bentuk}",
+        height=550,
         margin=dict(l=0, r=0, b=0, t=30)
     )
     return fig
@@ -215,52 +191,55 @@ def buat_plot_3d(tipe, p):
 #                         MAIN AREA (OUTPUT - KANAN)
 # ----------------------------------------------------------------------
 
-V_res, LP_res, rV, rLP = hitung_sifat_bangun(tipe_bangun, params)
-
-st.header(f"Analisis Bangun Ruang: {tipe_bangun}")
+st.header(f"Analisis **{bangun_ruang}**")
 st.markdown("---")
 
-col_plot, col_result = st.columns([3, 2])
+# Area untuk Plot dan Hasil (Layout Dua Kolom)
+col_result, col_plot = st.columns([1, 2])
+
+# Dapatkan dimensi untuk plotting
+dimensi = {}
+if bangun_ruang == "Kubus": dimensi = {'s': s}
+elif bangun_ruang == "Balok": dimensi = {'p': p, 'l': l, 't': t}
+elif bangun_ruang == "Tabung": dimensi = {'r': r, 't': t}
+elif bangun_ruang == "Bola": dimensi = {'r': r}
+else: dimensi = None
+
 
 with col_plot:
-    # Tampilkan Model 3D
-    try:
-        fig_3d = buat_plot_3d(tipe_bangun, params)
-        st.plotly_chart(fig_3d, use_container_width=True)
-        # 
-    except Exception as e:
-        st.error(f"⚠️ Error saat visualisasi 3D: {e}")
+    st.subheader("Visualisasi Interaktif (Plotly)")
+    if dimensi:
+        fig = buat_plot_3d(bangun_ruang, dimensi)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        # Placeholder untuk bentuk yang lebih kompleks
+        st.warning(f"Visualisasi 3D interaktif untuk **{bangun_ruang}** tidak didukung dalam skrip ini.")
+        st.markdown(f"**{bangun_ruang}** adalah bangun ruang yang sering digunakan. ")
+
 
 with col_result:
-    st.subheader("📝 Rumus & Hasil Perhitungan")
+    st.subheader("📝 Hasil Perhitungan")
     
-    # Menampilkan Dimensi
-    st.markdown("**Dimensi Input:**")
-    dim_str = ", ".join([f"${k} = {v}$" for k, v in params.items() if k not in ['c']])
-    st.markdown(dim_str)
+    # Tampilkan Dimensi
+    if bangun_ruang == "Kubus": st.markdown(f"* $s$ = {s}")
+    elif bangun_ruang == "Balok": st.markdown(f"* $p$ = {p}, $l$ = {l}, $t$ = {t}")
+    elif bangun_ruang == "Prisma Segitiga": st.markdown(f"* Alas Segitiga ($a$) = {alas_segitiga}, Tinggi Segitiga ($t_s$) = {tinggi_segitiga}, Tinggi Prisma ($T$) = {tinggi_prisma}")
+    elif bangun_ruang == "Limas Segiempat": st.markdown(f"* Panjang Alas ($p$) = {sisi_alas_p}, Lebar Alas ($l$) = {sisi_alas_l}, Tinggi Limas ($T$) = {tinggi_limas}")
+    elif bangun_ruang == "Kerucut" or bangun_ruang == "Tabung": st.markdown(f"* $r$ = {r}, $t$ = {t}")
+    elif bangun_ruang == "Bola": st.markdown(f"* $r$ = {r}")
+        
     st.markdown("---")
 
-    # Volume
-    st.metric(
-        label="🚀 Volume ($V$)",
-        value=f"{V_res:,.2f} satuan³"
-    )
-    st.markdown("**Rumus Volume:**")
-    st.latex(rV)
+    # Tampilkan Rumus Volume
+    st.markdown("**Volume ($V$)**")
+    st.latex(rumus["Volume"])
+    st.metric("Hasil Volume", f"{hasil['Volume']:,.4f} satuan kubik")
 
-    st.markdown("---")
-
-    # Luas Permukaan
-    st.metric(
-        label="🛡️ Luas Permukaan ($LP$)",
-        value=f"{LP_res:,.2f} satuan²"
-    )
-    st.markdown("**Rumus Luas Permukaan:**")
-    st.latex(rLP)
-    
-    st.info("Catatan: Perhitungan Luas Permukaan Prisma Segitiga mengasumsikan alas segitiga siku-siku.")
-
+    # Tampilkan Rumus Luas Permukaan
+    st.markdown("**Luas Permukaan ($LP$)**")
+    st.latex(rumus["Luas Permukaan"])
+    st.metric("Hasil Luas Permukaan", f"{hasil['Luas Permukaan']:,.4f} satuan persegi")
 
 # --- Footer ---
 st.sidebar.markdown("---")
-st.sidebar.info("Aplikasi menggunakan Plotly untuk visualisasi 3D interaktif.")
+st.sidebar.info("Aplikasi menggunakan Plotly untuk model 3D interaktif.")
